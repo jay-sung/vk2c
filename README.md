@@ -9,7 +9,7 @@ Vulkan with C.
 Setup
 
 ```shell
-export DYLD_LIBRARY_PATH="/Users/jangjiseong/Desktop/vk2c/deps/Vulkan/1.4.321.0/lib:YLD_LIBRARY_PATH"
+export DYLD_LIBRARY_PATH="$PWD/deps/Vulkan/1.4.321.0/lib:YLD_LIBRARY_PATH"
 ```
 
 > debug build
