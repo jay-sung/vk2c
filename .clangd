@@ -1,0 +1,4 @@
+CompileFlags:
+  Add:
+    - -Ideps/GLFW/include
+    - -Ideps/Vulkan/1.4.321.0/include

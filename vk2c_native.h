@@ -6,8 +6,8 @@ extern "C" {
 #endif
 
 #define GLFW_INCLUDE_VULKAN
-#include "deps/GLFW/include/glfw/glfw3.h" // TODO: 나중에 바꾸기
 #include <vulkan/vulkan.h>
+#include <glfw/glfw3.h>
 
 #include <assert.h>
 #include <stdio.h>

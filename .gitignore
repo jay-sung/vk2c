@@ -1,4 +1,5 @@
 .idea/*
-deps/*
+deps/GLFW/*
+deps/Vulkan/*
 vk2c.dSYM/*
 vk2c

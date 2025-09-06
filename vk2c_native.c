@@ -409,14 +409,14 @@ VK2CResult_t vk2cCreateInstance(Vk2cContex_t* ctx, const char** extensionNames, 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
     vk2cMakeDebugMessengerCreateInfoEXT(&debugCreateInfo);
     instanceCreateInfo.pNext = &debugCreateInfo;
-#else
+#else // VK2C_DEBUG
     instanceCreateInfo.enabledLayerCount = 0;
     instanceCreateInfo.ppEnabledLayerNames = NULL;
-#endif
+#endif // VK2C_DEBUG
 
 #ifdef __APPLE__
     instanceCreateInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#endif
+#endif // __APPLE__
 
     result = vkCreateInstance(&instanceCreateInfo, NULL, &ctx->instance);
     if (result != VK_SUCCESS)
@@ -549,7 +549,7 @@ uint32_t vk2cQueryQueueFamily(VkPhysicalDevice physicalDevice, VkQueueFlags flag
             }
             vk2cLog(VK2C_LOG_VERBOSE, "\t timestampValidBits: %u", queueFamily[i].timestampValidBits);
             vk2cLog(VK2C_LOG_VERBOSE
-                , "\t minImageTransferGranularity: %u x %u x %u"
+ 		, "\t minImageTransferGranularity: %u x %u x %u"
                 , queueFamily[i].minImageTransferGranularity.width
                 , queueFamily[i].minImageTransferGranularity.height
                 , queueFamily[i].minImageTransferGranularity.depth);
@@ -873,6 +873,7 @@ VkSurfaceFormatKHR vk2cChooseSurfaceFormat(const VkSurfaceFormatKHR* availableFo
             return availableFormats[i];
         }
     }
+
     return availableFormats[0];
 }
 
@@ -1112,7 +1113,9 @@ VK2CResult_t vk2cCreatePipeline(Vk2cContex_t* ctx)
     vertexShaderStageCreateInfo.flags = 0;
     vertexShaderStageCreateInfo.pSpecializationInfo = NULL;
 
-    const VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo[] = { fragmentShaderStageCreateInfo, vertexShaderStageCreateInfo };
+    const VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo[] =
+        { fragmentShaderStageCreateInfo
+        , vertexShaderStageCreateInfo };
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1135,6 +1138,7 @@ VK2CResult_t vk2cCreatePipeline(Vk2cContex_t* ctx)
     graphicsPipelineCreateInfo.renderPass = ctx->renderPass;
     graphicsPipelineCreateInfo.flags = 0;
     graphicsPipelineCreateInfo.pNext = NULL;
+
 
     graphicsPipelineCreateInfo.stageCount = 2;
     graphicsPipelineCreateInfo.pStages = pipelineShaderStageCreateInfo;

@@ -1,0 +1,15 @@
+[
+  {
+    "label": "Debug",
+    "build": {
+      "command": "make",
+      "cwd": "$ZED_WORKTREE_ROOT"
+    },
+    "program": "ZED_WORKTREE_ROOT/vk2c",
+    "request": "launch",
+    "adapter": "CodeLLDB"
+    // "env": {
+    //   "DYLD_LIBRARY_PATH": "$ZED_WORKTREE_ROOT/deps/Vulkan/1.4.321.0/lib:YLD_LIBRARY_PATH"
+    // }
+  }
+]
