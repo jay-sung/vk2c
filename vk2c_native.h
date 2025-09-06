@@ -1,6 +1,7 @@
 #ifndef VK2C_NATIVE_H
 #define VK2C_NATIVE_H
 
+#include "vulkan/vulkan_core.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -66,7 +67,8 @@ struct Vk2cContex
     VkFramebuffer* framebuffers;
     uint32_t framebufferCount;
 
-    VkPipeline graphicsPipeline;
+    VkPipeline pipeline;
+    VkPipelineLayout pipelineLayout;
 };
 
 #ifdef VK2C_DEBUG

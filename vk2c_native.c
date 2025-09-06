@@ -1,4 +1,8 @@
 #include "vk2c_native.h"
+#include "vk2c.h"
+#include "vulkan/vk_platform.h"
+#include "vulkan/vulkan_core.h"
+#include <assert.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback
         ( __attribute__((unused)) VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity
@@ -31,6 +35,8 @@ void vk2cMakeContext(Vk2cContex_t* ctx)
         .swapchainFormat = {},
         .framebuffers =  NULL,
         .framebufferCount = UINT32_MAX,
+        .pipeline = VK_NULL_HANDLE,
+        .pipelineLayout = VK_NULL_HANDLE
     };
 }
 
@@ -138,6 +144,12 @@ VK2CResult_t vk2cCreateContext(Vk2cContex_t* ctx)
         return result;
     }
 
+    result = vk2cCreatePipeline(ctx);
+    if (result != VK2C_OK)
+    {
+        return result;
+    }
+
     return VK2C_OK;
 }
 
@@ -145,6 +157,7 @@ void vk2cDestroyContext(Vk2cContex_t* ctx)
 {
     assert(ctx != NULL);
 
+    vk2cDestroyPipeline(ctx);
     vk2cDestroyFramebuffer(ctx);
     vk2cDestroyRenderpass(ctx);
     vk2cDestroySwapchain(ctx);
@@ -1035,6 +1048,10 @@ uint32_t* vk2cReadFileOrNull(const char* path, size_t* outSize)
     assert(outSize != NULL);
 
     FILE* file = fopen(path, "r");
+    if (file == NULL)
+    {
+        return NULL;
+    }
     fseek(file, 0, SEEK_END);
     *outSize = ftell(file);
     rewind(file);
@@ -1083,6 +1100,7 @@ VK2CResult_t vk2cCreatePipeline(Vk2cContex_t* ctx)
     assert(ctx != NULL);
     assert(ctx->renderPass != NULL);
 
+    VkResult result;
     VkShaderModule fragmentShader = vk2cCreateShaderModuleOrNull(ctx, "frag.spv");
     if (fragmentShader == NULL)
     {
@@ -1097,64 +1115,155 @@ VK2CResult_t vk2cCreatePipeline(Vk2cContex_t* ctx)
         return VK2C_ERROR_SHADER_MODULE_NOT_FOUND;
     }
 
-    VkPipelineShaderStageCreateInfo fragmentShaderStageCreateInfo = {};
-    fragmentShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragmentShaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    fragmentShaderStageCreateInfo.module = fragmentShader;
-    fragmentShaderStageCreateInfo.pName = "main";
-    fragmentShaderStageCreateInfo.flags = 0;
-    fragmentShaderStageCreateInfo.pSpecializationInfo = NULL;
+    VkPipelineShaderStageCreateInfo fragStageCreateInfo = {};
+    fragStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragStageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragStageCreateInfo.module = fragmentShader;
+    fragStageCreateInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo vertexShaderStageCreateInfo = {};
-    vertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertexShaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    vertexShaderStageCreateInfo.module = fragmentShader;
-    vertexShaderStageCreateInfo.pName = "main";
-    vertexShaderStageCreateInfo.flags = 0;
-    vertexShaderStageCreateInfo.pSpecializationInfo = NULL;
+    VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo = {};
+    vertShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageCreateInfo.module = vertexShader;
+    vertShaderStageCreateInfo.pName = "main";
 
     const VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo[] =
-        { fragmentShaderStageCreateInfo
-        , vertexShaderStageCreateInfo };
+        { fragStageCreateInfo
+        , vertShaderStageCreateInfo };
+
+    VkVertexInputBindingDescription inputBindingDesc = {};
+    inputBindingDesc.binding = 0;
+    inputBindingDesc.stride = sizeof(float) * 5;
+    inputBindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription coordAttrDesc = {};
+    coordAttrDesc.binding = 0;
+    coordAttrDesc.format = VK_FORMAT_R32G32_SFLOAT;
+    coordAttrDesc.location = 0;
+    coordAttrDesc.offset = 0;
+
+    VkVertexInputAttributeDescription rgbAttrDesc = {};
+    rgbAttrDesc.binding = 0;
+    rgbAttrDesc.format = VK_FORMAT_R32G32B32_SFLOAT;
+    rgbAttrDesc.location = 1;
+    rgbAttrDesc.offset = sizeof(float) * 2;
+
+    VkVertexInputAttributeDescription inputAttrDesc[] =
+        { coordAttrDesc
+        , rgbAttrDesc };
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    VkVertexInputBindingDescription bindingDescription = {};
-    bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(uint32_t);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = NULL;
-
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = NULL;
-    vertexInputInfo.pNext = NULL;
     vertexInputInfo.flags = 0;
+    vertexInputInfo.pNext = NULL;
+    vertexInputInfo.pVertexBindingDescriptions = &inputBindingDesc;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexAttributeDescriptions = inputAttrDesc;
+    vertexInputInfo.vertexAttributeDescriptionCount = 2;
 
-    VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
-    graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    graphicsPipelineCreateInfo.renderPass = ctx->renderPass;
-    graphicsPipelineCreateInfo.flags = 0;
-    graphicsPipelineCreateInfo.pNext = NULL;
+    VkPipelineInputAssemblyStateCreateInfo inputAsmStateCreateInfo = {};
+    inputAsmStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAsmStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    inputAsmStateCreateInfo.primitiveRestartEnable = VK_TRUE;
 
+    VkViewport viewport = {};
+    viewport.width = (float)ctx->swapchainExtent.width;
+    viewport.height = (float)ctx->swapchainExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
 
-    graphicsPipelineCreateInfo.stageCount = 2;
-    graphicsPipelineCreateInfo.pStages = pipelineShaderStageCreateInfo;
+    VkRect2D scissor = {};
+    scissor.extent = ctx->swapchainExtent;
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
 
-    VkResult result;
-    result = vkCreateGraphicsPipelines(ctx->device
-        , VK_NULL_HANDLE
-        , 0
-        , &graphicsPipelineCreateInfo
+    VkPipelineViewportStateCreateInfo viewportStateCraeteInfo = {};
+    viewportStateCraeteInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportStateCraeteInfo.pViewports = &viewport;
+    viewportStateCraeteInfo.viewportCount = 1;
+    viewportStateCraeteInfo.pScissors = &scissor;
+    viewportStateCraeteInfo.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rasterStateCreateInfo = {};
+    rasterStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterStateCreateInfo.depthBiasEnable = VK_FALSE;
+    rasterStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterStateCreateInfo.lineWidth = 1.0f;
+    rasterStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
+
+    VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = {};
+    multisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampleStateCreateInfo.sampleShadingEnable = VK_FALSE;
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {};
+    colorBlendAttachmentState.blendEnable = VK_TRUE;
+    colorBlendAttachmentState.colorWriteMask
+        = VK_COLOR_COMPONENT_R_BIT
+        | VK_COLOR_COMPONENT_G_BIT
+        | VK_COLOR_COMPONENT_B_BIT
+        | VK_COLOR_COMPONENT_A_BIT;
+
+    VkPipelineColorBlendStateCreateInfo colorBlendStateCrateInfo = {};
+    colorBlendStateCrateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendStateCrateInfo.attachmentCount = 1;
+    colorBlendStateCrateInfo.logicOpEnable = VK_FALSE;
+    colorBlendStateCrateInfo.pAttachments = &colorBlendAttachmentState;
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+    pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutCreateInfo.setLayoutCount = 0;
+    pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+
+    result = vkCreatePipelineLayout
+        ( ctx->device
+        , &pipelineLayoutCreateInfo
         , NULL
-        , &ctx->graphicsPipeline);
+        , &ctx->pipelineLayout);
+    if (result != VK_SUCCESS)
+    {
+        vk2cLog(VK2C_LOG_ERROR, "vkCreatePipelineLayout() Error. Result %d", result);
+        vkDestroyShaderModule(ctx->device, fragmentShader, NULL);
+        vkDestroyShaderModule(ctx->device, vertexShader, NULL);
+        return VK2C_ERROR_CREATE_GRAHPICS_PIPELINE_LAYOUT_FAILED;
+    }
+
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineCreateInfo.renderPass = ctx->renderPass;
+    pipelineCreateInfo.layout = ctx->pipelineLayout;
+    pipelineCreateInfo.stageCount = 2;
+    pipelineCreateInfo.pStages = pipelineShaderStageCreateInfo;
+    pipelineCreateInfo.pInputAssemblyState = &inputAsmStateCreateInfo;
+    pipelineCreateInfo.pVertexInputState = &vertexInputInfo;
+    pipelineCreateInfo.pRasterizationState = &rasterStateCreateInfo;
+    pipelineCreateInfo.pViewportState = &viewportStateCraeteInfo;
+    pipelineCreateInfo.pMultisampleState = &multisampleStateCreateInfo;
+    pipelineCreateInfo.pColorBlendState = &colorBlendStateCrateInfo;
+    pipelineCreateInfo.pDepthStencilState = NULL;
+    pipelineCreateInfo.pDynamicState = NULL;
+
+    result = vkCreateGraphicsPipelines
+        ( ctx->device
+        , VK_NULL_HANDLE
+        , 1
+        , &pipelineCreateInfo
+        , NULL
+        , &ctx->pipeline);
     if (result != VK_SUCCESS)
     {
         vk2cLog(VK2C_LOG_VERBOSE, "Error creating graphics pipeline. Result %d", result);
-        return VK2C_ERROR_CREATE_GRAPHICS_PIPELINES_FAILED;
+        vkDestroyShaderModule(ctx->device, fragmentShader, NULL);
+        vkDestroyShaderModule(ctx->device, vertexShader, NULL);
+        return VK2C_ERROR_CREATE_GRAPHICS_PIPELINE_FAILED;
     }
+
+    vkDestroyShaderModule(ctx->device, fragmentShader, NULL);
+    vkDestroyShaderModule(ctx->device, vertexShader, NULL);
 
     return VK2C_OK;
 }
@@ -1162,6 +1271,15 @@ VK2CResult_t vk2cCreatePipeline(Vk2cContex_t* ctx)
 void vk2cDestroyPipeline(Vk2cContex_t* ctx)
 {
     assert(ctx != NULL);
+    assert(ctx->device != VK_NULL_HANDLE);
+    assert(ctx->pipeline != VK_NULL_HANDLE);
+    assert(ctx->pipelineLayout != VK_NULL_HANDLE);
+
+    vkDestroyPipelineLayout(ctx->device, ctx->pipelineLayout, NULL);
+    vkDestroyPipeline(ctx->device, ctx->pipeline,  NULL);
+
+    ctx->pipelineLayout = VK_NULL_HANDLE;
+    ctx->pipeline = VK_NULL_HANDLE;
 }
 
 

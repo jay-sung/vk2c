@@ -1,5 +1,4 @@
 .idea/*
-deps/GLFW/*
-deps/Vulkan/*
+deps/Vulkan/1.4.321.0/include/glm/**
 vk2c.dSYM/*
 vk2c

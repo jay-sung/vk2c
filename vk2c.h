@@ -3,7 +3,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif // __cplusplus
 
 typedef enum
 {
@@ -41,7 +41,8 @@ typedef enum
 
     VK2C_ERROR_SHADER_MODULE_NOT_FOUND,
 
-    VK2C_ERROR_CREATE_GRAPHICS_PIPELINES_FAILED,
+    VK2C_ERROR_CREATE_GRAPHICS_PIPELINE_FAILED,
+    VK2C_ERROR_CREATE_GRAHPICS_PIPELINE_LAYOUT_FAILED,
 
     VK2C_ERROR_OOM,
     VK2C_ERROR_UNKNOWN,
@@ -51,6 +52,6 @@ typedef struct Vk2cContex Vk2cContex_t;
 
 #ifdef __cplusplus
 }
-#endif
+#endif // __cplusplus
 
 #endif // VK2C_H
